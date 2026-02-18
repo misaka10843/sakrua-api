@@ -1,8 +1,9 @@
 import logging
 import os
-import sys
 from logging.handlers import TimedRotatingFileHandler
+
 from rich.logging import RichHandler
+
 from app.core.config import settings
 
 

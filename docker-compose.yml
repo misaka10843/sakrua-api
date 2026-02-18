@@ -1,10 +1,16 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: fastapi_redis
+    restart: always
   api:
     build: .
     container_name: fastapi_backend
     restart: always
     ports:
       - "8000:8000"
+    depends_on:
+      - redis
     env_file:
       - .env
     volumes:

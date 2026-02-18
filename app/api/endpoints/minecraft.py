@@ -1,8 +1,10 @@
 import re
+from typing import Optional
+
 from fastapi import APIRouter, Query
 from mcstatus import JavaServer
 from pydantic import BaseModel
-from typing import Optional
+
 from app.core.logger import logger
 
 router = APIRouter()
@@ -53,6 +55,7 @@ def extract_game_version(raw_version: str) -> str:
         return versions[0]
 
     return raw_version.split(" ")[-1]
+
 
 @router.get("/status", response_model=MCStatusResponse, summary="查询 Minecraft Java 服务器状态")
 async def check_mc_server(

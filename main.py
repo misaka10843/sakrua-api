@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.logger import logger
+from app.utils.cache import CacheClient
 from app.utils.http_client import HttpClient
 
 
@@ -13,12 +14,14 @@ async def lifespan(app: FastAPI):
     logger.info("Application startup...")
 
     HttpClient.get_client()
+    CacheClient.init()
 
     yield
 
     logger.info("Application shutdown...")
 
     await HttpClient.close()
+    await CacheClient.close()
 
     # await Tortoise.close_connections()
     # logger.info("Tortoise-ORM connections closed")

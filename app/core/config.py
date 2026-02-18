@@ -1,6 +1,7 @@
-from pydantic_settings import BaseSettings
 from functools import lru_cache
 from typing import Optional
+
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -11,6 +12,11 @@ class Settings(BaseSettings):
     # DB
     DB_URL: str = "sqlite://db.sqlite3"
     DB_MODELS: list = ["app.models", "aerich.models"]
+
+    # cache
+    REDIS_URL: str = "redis://localhost:6379/0"
+    AVATAR_CACHE_TTL: int = 600
+    DISCORD_GUILD_ID: str = ""
 
     # Logging
     LOG_LEVEL: str = "INFO"
