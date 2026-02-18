@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+tortoise-orm
+aerich
+pydantic-settings
+httpx
+rich
+mcstatus
+python-dotenv
+tortoise
