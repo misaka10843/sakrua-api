@@ -1,0 +1,17 @@
+services:
+  api:
+    build: .
+    container_name: fastapi_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # - ./logs:/app/logs
+      - ./db.sqlite3:/app/db.sqlite3
+      - ./app:/app/app
+
+    environment:
+      - LOG_LEVEL=INFO
+      - DEBUG=False
