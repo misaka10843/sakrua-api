@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional, Union, Dict, Set
+from typing import List, Optional, Union, Dict
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Body
 from pydantic import BaseModel, Field
@@ -175,7 +175,7 @@ def _process_contributors(
             final_name = override_data.name if (override_data and override_data.name) else base_name
             final_avatar = override_data.avatar if (override_data and override_data.avatar) else base_avatar
             final_use_github = override_data.avatarUseGithub if (
-                        override_data and override_data.avatarUseGithub is not None) else False
+                    override_data and override_data.avatarUseGithub is not None) else False
             final_position = override_data.position if (override_data and override_data.position) else base_position
 
             final_contact = {

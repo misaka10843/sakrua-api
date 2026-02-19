@@ -23,22 +23,22 @@
         <v-list-item
             v-for="item in menuItems"
             :key="item.path"
-            :to="item.path"
             :prepend-icon="item.meta.icon"
             :title="item.meta.title"
-            rounded="xl"
+            :to="item.path"
             active-class="bg-surface text-primary"
+            rounded="xl"
         ></v-list-item>
       </v-list>
 
       <template v-slot:append>
         <v-list-item
             class="mb-2"
+            href="#"
             prepend-icon="mdi-github"
             rounded="xl"
-            title="Project Repo"
-            href="#"
             target="_blank"
+            title="Project Repo"
         ></v-list-item>
       </template>
     </v-navigation-drawer>
@@ -52,13 +52,13 @@
 
       <v-spacer></v-spacer>
 
-      </v-app-bar>
+    </v-app-bar>
 
     <v-main>
       <v-container class="pa-4 pa-md-6" fluid style="max-width: 1600px;">
         <router-view v-slot="{ Component }">
           <v-fade-transition mode="out-in">
-             <component :is="Component" />
+            <component :is="Component"/>
           </v-fade-transition>
         </router-view>
       </v-container>
@@ -81,16 +81,16 @@
 </template>
 
 <script setup>
-import { ref, computed, provide, reactive } from 'vue'
-import { useDisplay } from 'vuetify'
-import { useRouter } from 'vue-router'
+import {computed, provide, reactive, ref} from 'vue'
+import {useDisplay} from 'vuetify'
+import {useRouter} from 'vue-router'
 
-const { mobile } = useDisplay()
+const {mobile} = useDisplay()
 const router = useRouter()
 
 const drawer = ref(!mobile.value)
 const rail = ref(true)
-const snackbar = reactive({ show: false, text: '', color: 'success' })
+const snackbar = reactive({show: false, text: '', color: 'success'})
 
 const menuItems = computed(() => {
   return router.options.routes.filter(r => r.meta && !r.redirect)
@@ -109,5 +109,7 @@ provide('showMsg', showMsg)
 </script>
 
 <style>
-html { overflow-y: auto; }
+html {
+  overflow-y: auto;
+}
 </style>

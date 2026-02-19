@@ -15,7 +15,6 @@ class Settings(BaseSettings):
 
     # cache
     REDIS_URL: str = "redis://localhost:6379/0"
-    AVATAR_CACHE_TTL: int = 600
     DISCORD_GUILD_ID: str = ""
 
     # Logging

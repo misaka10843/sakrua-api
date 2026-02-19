@@ -1,26 +1,26 @@
 <template>
   <div class="h-100 d-flex flex-column">
-    <v-toolbar color="transparent" density="compact" class="mb-2">
+    <v-toolbar class="mb-2" color="transparent" density="compact">
       <v-toolbar-title class="text-h6 font-weight-bold">Contributors Config Editor</v-toolbar-title>
       <v-spacer></v-spacer>
-      <v-btn prepend-icon="mdi-download" variant="tonal" class="mr-2" @click="triggerImport">import</v-btn>
-      <v-btn prepend-icon="mdi-upload" variant="flat" color="primary" @click="exportJson">export</v-btn>
-      <input type="file" ref="fileInput" style="display: none" @change="handleImport" accept=".json"/>
+      <v-btn class="mr-2" prepend-icon="mdi-download" variant="tonal" @click="triggerImport">import</v-btn>
+      <v-btn color="primary" prepend-icon="mdi-upload" variant="flat" @click="exportJson">export</v-btn>
+      <input ref="fileInput" accept=".json" style="display: none" type="file" @change="handleImport"/>
     </v-toolbar>
 
     <v-row class="flex-grow-1">
-      <v-col cols="12" md="5" lg="4" class="d-flex flex-column">
-        <v-card title="Teams List" subtitle="Configure role group binding"
-                class="flex-grow-1 d-flex flex-column">
+      <v-col class="d-flex flex-column" cols="12" lg="4" md="5">
+        <v-card class="flex-grow-1 d-flex flex-column" subtitle="Configure role group binding"
+                title="Teams List">
           <template v-slot:append>
-            <v-btn icon="mdi-plus" color="primary" variant="tonal" @click="addTeam"></v-btn>
+            <v-btn color="primary" icon="mdi-plus" variant="tonal" @click="addTeam"></v-btn>
           </template>
 
           <v-card-text class="pa-2 flex-grow-1 overflow-y-auto" style="max-height: calc(100vh - 200px);">
-            <v-expansion-panels variant="popout" multiple flat>
-              <v-expansion-panel class="v-card" style="border-width: 1px" v-for="(team, index) in config" :key="index">
+            <v-expansion-panels flat multiple variant="popout">
+              <v-expansion-panel v-for="(team, index) in config" :key="index" class="v-card" style="border-width: 1px">
                 <v-expansion-panel-title>
-                  <v-avatar size="24" :color="getTeamColor(team.color)" class="mr-3 text-caption text-white">
+                  <v-avatar :color="getTeamColor(team.color)" class="mr-3 text-caption text-white" size="24">
                     {{ team.name ? team.name.charAt(0) : '#' }}
                   </v-avatar>
                   <div class="text-truncate">{{ team.name || 'Unnamed Group' }}</div>
@@ -30,21 +30,21 @@
                   <v-autocomplete
                       v-model="team.role_ids"
                       :items="discordRoles"
+                      chips
+                      class="mb-1"
+                      closable-chips
+                      density="compact"
                       item-title="name"
                       item-value="id"
                       label="Bind Discord Role Group"
                       multiple
-                      chips
-                      closable-chips
-                      density="compact"
                       variant="outlined"
-                      class="mb-1"
                       @update:model-value="(val) => onRolesChange(val, index)"
                   >
                     <template v-slot:item="{ props, item }">
-                      <v-list-item v-bind="props" :title="item.raw.name">
+                      <v-list-item :title="item.raw.name" v-bind="props">
                         <template v-slot:prepend>
-                          <v-avatar size="12" :color="item.raw.color_hex" class="mr-2"></v-avatar>
+                          <v-avatar :color="item.raw.color_hex" class="mr-2" size="12"></v-avatar>
                         </template>
                       </v-list-item>
                     </template>
@@ -52,31 +52,31 @@
 
                   <v-text-field
                       v-model="team.name"
-                      label="Display group name"
-                      density="compact"
-                      variant="outlined"
-                      hide-details="auto"
                       class="mb-3"
+                      density="compact"
+                      hide-details="auto"
+                      label="Display group name"
+                      variant="outlined"
                   ></v-text-field>
 
                   <div class="d-flex align-center mb-3">
                     <v-text-field
                         v-model="team.color"
-                        label="Color (Hex, support gradient hex arrays)"
-                        density="compact"
-                        variant="outlined"
-                        hide-details
                         class="flex-grow-1 mr-2"
+                        density="compact"
+                        hide-details
+                        label="Color (Hex, support gradient hex arrays)"
+                        variant="outlined"
                     >
                       <template v-slot:prepend-inner>
-                        <div class="rounded-circle border"
-                             :style="{background: getCssGradient(team.color), width: '16px', height: '16px'}"></div>
+                        <div :style="{background: getCssGradient(team.color), width: '16px', height: '16px'}"
+                             class="rounded-circle border"></div>
                       </template>
                     </v-text-field>
 
                     <v-menu>
                       <template v-slot:activator="{ props }">
-                        <v-btn v-bind="props" icon="mdi-eyedropper" size="small" variant="text" color="secondary">
+                        <v-btn color="secondary" icon="mdi-eyedropper" size="small" v-bind="props" variant="text">
                           <v-tooltip activator="parent" location="top">Extract the color from the selected role group
                           </v-tooltip>
                         </v-btn>
@@ -90,41 +90,41 @@
                             @click="team.color = getRoleColorHex(rid)"
                         >
                           <template v-slot:prepend>
-                            <v-avatar size="16" :color="getRoleColorHex(rid)" class="mr-2"></v-avatar>
+                            <v-avatar :color="getRoleColorHex(rid)" class="mr-2" size="16"></v-avatar>
                           </template>
                           <v-list-item-title>{{ getRoleName(rid) }}</v-list-item-title>
                         </v-list-item>
                         <v-divider class="my-1"></v-divider>
-                        <v-list-item @click="team.color = '#000000'" title="Reset to black"></v-list-item>
+                        <v-list-item title="Reset to black" @click="team.color = '#000000'"></v-list-item>
                       </v-list>
                     </v-menu>
                   </div>
 
                   <v-combobox
                       v-model="team.include_user_ids"
-                      label="Mandatory included user ID"
-                      multiple
                       chips
+                      class="mb-3"
                       closable-chips
                       density="compact"
-                      variant="outlined"
-                      hide-no-data
-                      placeholder="Enter the ID and press Enter."
                       hide-details="auto"
-                      class="mb-3"
+                      hide-no-data
+                      label="Mandatory included user ID"
+                      multiple
+                      placeholder="Enter the ID and press Enter."
+                      variant="outlined"
                   ></v-combobox>
 
-                  <v-text-field v-model="team.image" label="Icon path" density="compact" variant="outlined"
-                                hide-details></v-text-field>
+                  <v-text-field v-model="team.image" density="compact" hide-details label="Icon path"
+                                variant="outlined"></v-text-field>
 
                   <div class="d-flex justify-space-between mt-4 pt-2 border-t">
                     <div>
-                      <v-btn icon="mdi-arrow-up" size="small" variant="text" :disabled="index === 0"
+                      <v-btn :disabled="index === 0" icon="mdi-arrow-up" size="small" variant="text"
                              @click="moveTeam(index, -1)"></v-btn>
-                      <v-btn icon="mdi-arrow-down" size="small" variant="text" :disabled="index === config.length - 1"
+                      <v-btn :disabled="index === config.length - 1" icon="mdi-arrow-down" size="small" variant="text"
                              @click="moveTeam(index, 1)"></v-btn>
                     </div>
-                    <v-btn color="error" size="small" variant="text" prepend-icon="mdi-delete"
+                    <v-btn color="error" prepend-icon="mdi-delete" size="small" variant="text"
                            @click="removeTeam(index)">
                       Delete
                     </v-btn>
@@ -136,34 +136,36 @@
 
           <v-divider></v-divider>
           <v-card-actions>
-            <v-btn block color="secondary" variant="text" @click="fetchRoles" :loading="loadingRoles"
-                   prepend-icon="mdi-sync">
+            <v-btn :loading="loadingRoles" block color="secondary" prepend-icon="mdi-sync" variant="text"
+                   @click="fetchRoles">
               Refresh the list of role groups
             </v-btn>
           </v-card-actions>
         </v-card>
       </v-col>
 
-      <v-col cols="12" md="7" lg="8" class="d-flex flex-column">
+      <v-col class="d-flex flex-column" cols="12" lg="8" md="7">
         <v-card class="fill-height d-flex flex-column">
-          <v-toolbar color="surface" density="compact" class="border-b px-2">
+          <v-toolbar class="border-b px-2" color="surface" density="compact">
             <v-toolbar-title class="text-subtitle-1 font-weight-bold">Preview</v-toolbar-title>
             <v-spacer></v-spacer>
-            <v-btn color="primary" prepend-icon="mdi-refresh" @click="fetchPreview" :loading="loadingPreview">
+            <v-btn :loading="loadingPreview" color="primary" prepend-icon="mdi-refresh" @click="fetchPreview">
               Generate/Refresh Preview
             </v-btn>
           </v-toolbar>
 
           <v-card-text class="pa-4 flex-grow-1 overflow-y-auto" style="max-height: calc(100vh - 200px);">
             <div v-if="!previewData.length" class="d-flex flex-column align-center justify-center text-medium-emphasis">
-              <v-icon size="64" class="mb-4 text-grey-lighten-1">mdi-account-group-outline</v-icon>
+              <v-icon class="mb-4 text-grey-lighten-1" size="64">mdi-account-group-outline</v-icon>
               <div class="text-h6">No preview data available.</div>
-              <div class="text-body-2">Please configure the team and click the "Generate Preview" button on the top right.</div>
+              <div class="text-body-2">Please configure the team and click the "Generate Preview" button on the top
+                right.
+              </div>
             </div>
 
             <div v-for="group in previewData" :key="group.name" class="mb-8">
               <div class="d-flex align-center mb-4 px-2">
-                <v-avatar size="36" :color="getTeamColor(group.color)" class="mr-3 elevation-2">
+                <v-avatar :color="getTeamColor(group.color)" class="mr-3 elevation-2" size="36">
                   <v-img v-if="group.image" :src="group.image"></v-img>
                   <span v-else class="text-caption text-white font-weight-bold">{{ group.name.charAt(0) }}</span>
                 </v-avatar>
@@ -174,18 +176,18 @@
               </div>
 
               <v-row dense>
-                <v-col v-for="member in group.list" :key="member.id" cols="12" sm="6" md="4" xl="3">
+                <v-col v-for="member in group.list" :key="member.id" cols="12" md="4" sm="6" xl="3">
                   <v-card
-                      @click="openEditDialog(member, group.name)"
-                      hover
                       :class="{'border-primary border-md': hasOverride(member.id)}"
                       class="transition-swing rounded-lg"
                       elevation="0"
                       flat
+                      hover
+                      @click="openEditDialog(member, group.name)"
                   >
                     <v-card-item class="pa-3">
                       <template v-slot:prepend>
-                        <v-avatar size="42" :image="member.avatar" class="border"></v-avatar>
+                        <v-avatar :image="member.avatar" class="border" size="42"></v-avatar>
                       </template>
                       <v-card-title class="text-body-2 font-weight-bold mb-1">{{ member.name }}</v-card-title>
                       <v-card-subtitle class="d-flex flex-column">
@@ -208,13 +210,13 @@
 
     <v-dialog v-model="dialog" max-width="500" scrollable>
       <v-card class="rounded-xl">
-        <v-toolbar title="Edit member" color="surface" density="compact" class="border-b">
-          <v-btn icon="mdi-close" @click="dialog = false" variant="text"></v-btn>
+        <v-toolbar class="border-b" color="surface" density="compact" title="Edit member">
+          <v-btn icon="mdi-close" variant="text" @click="dialog = false"></v-btn>
         </v-toolbar>
 
         <v-card-text class="pt-4">
           <div class="d-flex align-center mb-4">
-            <v-avatar size="64" :image="editingMember?.avatar" class="mr-4 border"></v-avatar>
+            <v-avatar :image="editingMember?.avatar" class="mr-4 border" size="64"></v-avatar>
             <div>
               <div class="text-h6">{{ editingMember?.name }}</div>
               <div class="text-caption text-grey">ID: {{ editingMember?.id }}</div>
@@ -223,16 +225,16 @@
 
           <v-select
               v-model="tempTeamIndex"
-              :items="config"
-              item-title="name"
               :item-value="(item) => config.indexOf(item)"
-              label="Team Affiliation (Move to Group)"
-              variant="outlined"
-              density="comfortable"
-              prepend-inner-icon="mdi-account-switch"
+              :items="config"
               class="mb-4"
+              density="comfortable"
               hint="Force Add User ID to Target Group"
+              item-title="name"
+              label="Team Affiliation (Move to Group)"
               persistent-hint
+              prepend-inner-icon="mdi-account-switch"
+              variant="outlined"
           ></v-select>
 
           <v-divider class="mb-4"></v-divider>
@@ -240,29 +242,31 @@
 
           <v-row dense>
             <v-col cols="12">
-              <v-text-field v-model="tempOverride.name" label="Display Name" placeholder="Default to Discord Nickname"
-                            density="compact" variant="outlined"></v-text-field>
+              <v-text-field v-model="tempOverride.name" density="compact" label="Display Name"
+                            placeholder="Default to Discord Nickname" variant="outlined"></v-text-field>
             </v-col>
             <v-col cols="12">
-              <v-text-field v-model="tempOverride.position" label="Position" placeholder="Default to Group Name"
-                            density="compact" variant="outlined"></v-text-field>
+              <v-text-field v-model="tempOverride.position" density="compact" label="Position"
+                            placeholder="Default to Group Name" variant="outlined"></v-text-field>
             </v-col>
             <v-col cols="12">
-              <v-text-field v-model="tempOverride.avatar" label="Custom Avatar URL" density="compact" placeholder="URL/github username/discord user id"
+              <v-text-field v-model="tempOverride.avatar" density="compact" label="Custom Avatar URL"
+                            placeholder="URL/github username/discord user id"
                             variant="outlined"></v-text-field>
             </v-col>
           </v-row>
 
-          <v-switch v-model="tempOverride.avatarUseGithub" label="Use GitHub Avatar" color="primary" density="compact"
-                    hide-details class="mb-2"></v-switch>
+          <v-switch v-model="tempOverride.avatarUseGithub" class="mb-2" color="primary" density="compact"
+                    hide-details label="Use GitHub Avatar"></v-switch>
 
           <div class="text-subtitle-2 font-weight-bold mb-2 mt-2 text-primary">Social Links</div>
-          <v-text-field v-model="tempOverride.contact.github" label="GitHub Username" density="compact"
-                        variant="outlined" prepend-inner-icon="mdi-github"></v-text-field>
-          <v-text-field v-model="tempOverride.contact.twitter" label="Twitter / X" density="compact" variant="outlined"
-                        prepend-inner-icon="mdi-twitter"></v-text-field>
-          <v-text-field v-model="tempOverride.contact.other" label="Other Links (URL)" density="compact" variant="outlined"
-                        prepend-inner-icon="mdi-link"></v-text-field>
+          <v-text-field v-model="tempOverride.contact.github" density="compact" label="GitHub Username"
+                        prepend-inner-icon="mdi-github" variant="outlined"></v-text-field>
+          <v-text-field v-model="tempOverride.contact.twitter" density="compact" label="Twitter / X" prepend-inner-icon="mdi-twitter"
+                        variant="outlined"></v-text-field>
+          <v-text-field v-model="tempOverride.contact.other" density="compact" label="Other Links (URL)"
+                        prepend-inner-icon="mdi-link"
+                        variant="outlined"></v-text-field>
         </v-card-text>
 
         <v-card-actions class="pa-4 bg-surface">
@@ -280,7 +284,6 @@
 import {inject, onMounted, ref} from 'vue'
 import axios from 'axios'
 
-const API_BASE = 'http://127.0.0.1:8000'
 const showMsg = inject('showMsg')
 
 const config = ref([])
@@ -330,7 +333,7 @@ const onRolesChange = (selectedRoleIds, teamIndex) => {
 const fetchRoles = async () => {
   loadingRoles.value = true
   try {
-    const res = await axios.get(`${API_BASE}/api/gensokyo/roles`)
+    const res = await axios.get(`/api/gensokyo/roles`)
     discordRoles.value = res.data
     showMsg('身份组已更新')
   } catch (e) {
@@ -352,7 +355,7 @@ const fetchPreview = async () => {
       })),
       overrides: overrides.value
     }
-    const res = await axios.post(`${API_BASE}/api/gensokyo/contributors`, payload)
+    const res = await axios.post(`/api/gensokyo/contributors`, payload)
     previewData.value = res.data
     showMsg('预览已生成')
   } catch (e) {
