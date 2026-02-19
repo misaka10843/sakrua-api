@@ -1,7 +1,9 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
+from starlette.staticfiles import StaticFiles
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -42,7 +44,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(api_router, prefix=settings.API_PREFIX)
-
+    if os.path.exists("spa_dist"):
+        app.mount("/", StaticFiles(directory="spa_dist", html=True), name="static")
     return app
 
 
