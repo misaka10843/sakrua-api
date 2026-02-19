@@ -335,9 +335,9 @@ const fetchRoles = async () => {
   try {
     const res = await axios.get(`/api/gensokyo/roles`)
     discordRoles.value = res.data
-    showMsg('身份组已更新')
+    showMsg('Role group has been updated')
   } catch (e) {
-    showMsg('获取身份组失败', 'error')
+    showMsg('Failed to get role group', 'error')
   } finally {
     loadingRoles.value = false
   }
@@ -357,9 +357,9 @@ const fetchPreview = async () => {
     }
     const res = await axios.post(`/api/gensokyo/contributors`, payload)
     previewData.value = res.data
-    showMsg('预览已生成')
+    showMsg('Preview has been generated')
   } catch (e) {
-    showMsg('生成预览失败', 'error')
+    showMsg('Failed to generate preview', 'error')
   } finally {
     loadingPreview.value = false
   }
@@ -428,7 +428,7 @@ const saveChanges = () => {
       }
     }
 
-    showMsg(`已将用户移动到 "${targetTeam.name}"`)
+    showMsg(`User has been moved to "${targetTeam.name}"`)
   }
 
   dialog.value = false
@@ -449,7 +449,7 @@ const exportJson = () => {
   a.href = url
   a.download = 'gensokyo_config.json'
   a.click()
-  showMsg('配置已导出')
+  showMsg('Configuration has been exported')
 }
 const triggerImport = () => fileInput.value.click()
 const handleImport = (e) => {
@@ -461,10 +461,10 @@ const handleImport = (e) => {
       const json = JSON.parse(event.target.result)
       if (json.config) config.value = json.config
       if (json.overrides) overrides.value = json.overrides
-      showMsg('配置导入成功')
+      showMsg('Configuration import successful')
       fetchPreview()
     } catch (e) {
-      showMsg('文件格式错误', 'error')
+      showMsg('File format error', 'error')
     }
   }
   reader.readAsText(file)

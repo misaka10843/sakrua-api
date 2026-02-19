@@ -32,12 +32,12 @@ class ContributorOverride(BaseModel):
 
 
 class TeamConfig(BaseModel):
-    role_ids: List[str] = Field(default_factory=list, description="绑定的 Discord 身份组 ID 列表 (任意一个匹配即可)")
-    include_user_ids: List[str] = Field(default_factory=list, description="强制包含的用户 ID 列表")
+    role_ids: List[str] = Field(default_factory=list, description="List of bound Discord role group IDs")
+    include_user_ids: List[str] = Field(default_factory=list, description="List of mandatory included user IDs")
 
-    name: str = Field(..., description="显示的组名")
-    image: Optional[str] = Field(None, description="该组显示的图标路径")
-    color: Union[str, List[str]] = Field(..., description="颜色或渐变色数组")
+    name: str = Field(..., description="Display name of the group")
+    image: Optional[str] = Field(None, description="Path of the icon displayed for this group")
+    color: Union[str, List[str]] = Field(..., description="Array of colors or gradients")
 
 
 class ContributorRequest(BaseModel):
@@ -203,16 +203,16 @@ def _process_contributors(
     return result
 
 
-@router.post("/contributors", summary="根据配置获取贡献者列表")
+@router.post("/contributors", summary="Obtain contributor list based on configuration")
 async def get_contributors_dynamic(
-        body: ContributorRequest = Body(..., description="配置对象")
+        body: ContributorRequest = Body(..., description="Configuration object")
 ):
     all_members = await _get_cached_members()
     final_data = _process_contributors(all_members, body.config, body.overrides or {})
     return final_data
 
 
-@router.post("/contributors/refresh", summary="强制刷新 Discord 成员缓存")
+@router.post("/contributors/refresh", summary="Force refresh of Discord member cache")
 async def refresh_contributors_cache(background_tasks: BackgroundTasks):
     async def task():
         logger.info("Starting background refresh of Discord members...")
@@ -227,7 +227,7 @@ async def refresh_contributors_cache(background_tasks: BackgroundTasks):
     return {"status": "refreshing", "message": "Background refresh started"}
 
 
-@router.get("/roles", response_model=List[DiscordRole], summary="获取服务器所有身份组")
+@router.get("/roles", response_model=List[DiscordRole], summary="Get all role groups of the server")
 async def get_guild_roles():
     if not settings.DISCORD_GUILD_ID:
         raise HTTPException(status_code=500, detail="Guild ID not set")

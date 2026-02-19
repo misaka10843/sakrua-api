@@ -9,7 +9,7 @@ from app.utils.http_client import HttpClient
 router = APIRouter()
 
 
-@router.get("/avatar/{user_id}", summary="获取 Discord 用户头像并重定向")
+@router.get("/avatar/{user_id}", summary="Get Discord user avatar and redirect")
 async def redirect_discord_avatar(user_id: str):
     """
     根据 User ID 获取头像并 302 跳转。

@@ -51,10 +51,10 @@ def extract_game_version(raw_version: str) -> str:
     return raw_version.split(" ")[-1]
 
 
-@router.get("/status", response_model=MCStatusResponse, summary="查询 Minecraft Java 服务器状态")
+@router.get("/status", response_model=MCStatusResponse, summary="Query information about the Minecraft Java server")
 async def check_mc_server(
-        ip: str = Query(..., description="服务器 IP 地址"),
-        port: int = Query(25565, description="服务器端口")
+        ip: str = Query(..., description="Server IP address"),
+        port: int = Query(25565, description="Server port")
 ):
     target = f"{ip}:{port}"
     logger.info(f"Checking MC Server status: {target}")

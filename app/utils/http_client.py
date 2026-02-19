@@ -15,7 +15,6 @@ class HttpClient:
     @classmethod
     def get_client(cls) -> httpx.AsyncClient:
         if cls._client is None:
-            # 配置代理
             proxies = settings.HTTP_PROXY if settings.HTTP_PROXY else None
             cls._client = httpx.AsyncClient(
                 proxy=proxies,
@@ -45,12 +44,11 @@ class HttpClient:
             **kwargs
     ) -> Response | None:
         """
-        封装的请求方法
         :param method: GET, POST, etc.
-        :param url: 请求地址
-        :param retries: 重试次数 (默认3次)
-        :param retry_delay: 重试间隔 (秒)
-        :param kwargs: 传递给 httpx 的其他参数
+        :param url: Request Address
+        :param retries: Retry Count (default 3 times)
+        :param retry_delay: Retry Interval (seconds)
+        :param kwargs: Other parameters to be passed to httpx
         :return: httpx.Response
         """
         client = cls.get_client()
