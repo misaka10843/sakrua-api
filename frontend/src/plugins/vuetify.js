@@ -32,7 +32,8 @@ export default createVuetify({
     },
     defaults: {
         VCard: {
-            elevation: 2,
+            elevation: 0,
+            border: true,
             rounded: 'xl',
         },
         VBtn: {
@@ -44,5 +45,15 @@ export default createVuetify({
             density: 'comfortable',
             color: 'primary',
         },
+        VSelect: {
+            variant: 'outlined',
+            density: 'comfortable',
+            color: 'primary',
+        },
+        VAutocomplete: {
+            variant: 'outlined',
+            density: 'comfortable',
+            color: 'primary',
+        }
     },
 })

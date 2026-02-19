@@ -1,5 +1,5 @@
 import json
-from typing import List, Optional, Union, Dict
+from typing import List, Optional, Union, Dict, Set
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Body
 from pydantic import BaseModel, Field
@@ -32,8 +32,10 @@ class ContributorOverride(BaseModel):
 
 
 class TeamConfig(BaseModel):
-    role_id: str = Field(..., description="Discord 身份组 ID")
-    name: str = Field(..., description="显示的组名 (例如 Project Leads)")
+    role_ids: List[str] = Field(default_factory=list, description="绑定的 Discord 身份组 ID 列表 (任意一个匹配即可)")
+    include_user_ids: List[str] = Field(default_factory=list, description="强制包含的用户 ID 列表")
+
+    name: str = Field(..., description="显示的组名")
     image: Optional[str] = Field(None, description="该组显示的图标路径")
     color: Union[str, List[str]] = Field(..., description="颜色或渐变色数组")
 
@@ -96,21 +98,17 @@ async def _fetch_raw_guild_members(guild_id: str) -> List[dict]:
             if resp.status_code != 200:
                 logger.error(f"Failed to fetch members: {resp.text}")
                 break
-
             batch = resp.json()
             if not batch:
                 break
-
             members.extend(batch)
             last_id = batch[-1]["user"]["id"]
-
             if len(batch) < 1000:
                 break
             loop_count += 1
         except Exception as e:
             logger.error(f"Error fetching members: {e}")
             break
-
     logger.info(f"Fetched {len(members)} raw members from Discord.")
     return members
 
@@ -137,7 +135,7 @@ def _process_contributors(
         overrides: Dict[str, ContributorOverride]
 ) -> List[dict]:
     result = []
-    role_map = {}  # role_id -> index in result list
+    manual_map = {}
 
     for idx, cfg in enumerate(configs):
         result.append({
@@ -146,7 +144,8 @@ def _process_contributors(
             "color": cfg.color,
             "list": []
         })
-        role_map[cfg.role_id] = idx
+        for uid in cfg.include_user_ids:
+            manual_map[uid] = idx
 
     for member in members:
         user = member.get("user", {})
@@ -154,10 +153,17 @@ def _process_contributors(
         roles = member.get("roles", [])
 
         target_idx = -1
-        for cfg in configs:
-            if cfg.role_id in roles:
-                target_idx = role_map[cfg.role_id]
-                break
+
+        if user_id in manual_map:
+            target_idx = manual_map[user_id]
+
+        if target_idx == -1:
+            member_roles_set = set(roles)
+            for idx, cfg in enumerate(configs):
+                cfg_roles_set = set(cfg.role_ids)
+                if not cfg_roles_set.isdisjoint(member_roles_set):
+                    target_idx = idx
+                    break
 
         if target_idx != -1:
             base_name = member.get("nick") or user.get("global_name") or user.get("username")
@@ -168,18 +174,13 @@ def _process_contributors(
 
             final_name = override_data.name if (override_data and override_data.name) else base_name
             final_avatar = override_data.avatar if (override_data and override_data.avatar) else base_avatar
-
             final_use_github = override_data.avatarUseGithub if (
-                    override_data and override_data.avatarUseGithub is not None) else False
-
+                        override_data and override_data.avatarUseGithub is not None) else False
             final_position = override_data.position if (override_data and override_data.position) else base_position
 
             final_contact = {
                 "discord": user.get("username"),
-                "twitter": None,
-                "github": None,
-                "youtube": None,
-                "other": None
+                "twitter": None, "github": None, "youtube": None, "other": None
             }
 
             if override_data and override_data.contact:
@@ -202,15 +203,12 @@ def _process_contributors(
     return result
 
 
-@router.post("/contributors", summary="根据获取贡献者列表")
+@router.post("/contributors", summary="根据配置获取贡献者列表")
 async def get_contributors_dynamic(
-        body: ContributorRequest = Body(..., description="包含 config 和 overrides 的配置对象")
+        body: ContributorRequest = Body(..., description="配置对象")
 ):
     all_members = await _get_cached_members()
-
-    # 2. 根据前端传入的配置和覆盖表进行筛选与合并
     final_data = _process_contributors(all_members, body.config, body.overrides or {})
-
     return final_data
 
 
@@ -219,7 +217,6 @@ async def refresh_contributors_cache(background_tasks: BackgroundTasks):
     async def task():
         logger.info("Starting background refresh of Discord members...")
         if not settings.DISCORD_GUILD_ID:
-            logger.warning("Cannot refresh: DISCORD_GUILD_ID not set")
             return
         raw_data = await _fetch_raw_guild_members(settings.DISCORD_GUILD_ID)
         if raw_data:
@@ -236,7 +233,6 @@ async def get_guild_roles():
         raise HTTPException(status_code=500, detail="Guild ID not set")
 
     cache_key = f"discord:roles:{settings.DISCORD_GUILD_ID}"
-
     cached_data = await CacheClient.get(cache_key)
     if cached_data:
         return json.loads(cached_data)
@@ -249,10 +245,6 @@ async def get_guild_roles():
 
     try:
         response = await HttpClient.get(url, headers=headers)
-
-        if response.status_code == 404:
-            raise HTTPException(status_code=404, detail="Guild not found")
-
         if response.status_code != 200:
             raise HTTPException(status_code=response.status_code, detail="Failed to fetch roles")
 
