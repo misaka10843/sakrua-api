@@ -21,7 +21,7 @@ def setup_logger():
         datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    console_formatter = logging.Formatter("%(message)s")
+    console_formatter = logging.Formatter("[%(name)s] %(message)s")
 
     console_handler = RichHandler(
         rich_tracebacks=True,

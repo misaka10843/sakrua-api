@@ -1,7 +1,8 @@
 import json
-from typing import List
+from typing import List, Optional, Union, Dict
 
-from fastapi import APIRouter, BackgroundTasks
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Body
+from pydantic import BaseModel, Field
 
 from app.core.config import settings
 from app.core.logger import logger
@@ -10,33 +11,57 @@ from app.utils.http_client import HttpClient
 
 router = APIRouter()
 
-TEAMS_CONFIG = [
-    {
-        "role_id": "1454433213135978658",
-        "name": "Project Leads",
-        "image": "/icons/staff/admin.webp",
-        "color": ["#ff7a7b", "#ffc2c2"]
-    },
-    {
-        "role_id": "1454664229553438806",
-        "name": "Developers",
-        "image": "/icons/staff/developer.webp",
-        "color": ["#369876", "#4fff87"]
-    },
-    {
-        "role_id": "1454432689062154331",
-        "name": "Builders",
-        "image": "/icons/staff/build-lead.webp",
-        "color": "#194bb5"
-    }
-]
+CACHE_KEY_RAW_MEMBERS = "gensokyo:discord:members:raw"
+CACHE_TTL = 60 * 60 * 24 * 7  # 7天
 
-CACHE_KEY = "gensokyo:contributors:list"
-CACHE_TTL = 60 * 60 * 24 * 7
+
+class Contact(BaseModel):
+    discord: Optional[str] = None
+    twitter: Optional[str] = None
+    github: Optional[str] = None
+    youtube: Optional[str] = None
+    other: Optional[str] = None
+
+
+class ContributorOverride(BaseModel):
+    name: Optional[str] = None
+    avatar: Optional[str] = None
+    avatarUseGithub: Optional[bool] = None
+    position: Optional[str] = None
+    contact: Optional[Contact] = None
+
+
+class TeamConfig(BaseModel):
+    role_id: str = Field(..., description="Discord 身份组 ID")
+    name: str = Field(..., description="显示的组名 (例如 Project Leads)")
+    image: Optional[str] = Field(None, description="该组显示的图标路径")
+    color: Union[str, List[str]] = Field(..., description="颜色或渐变色数组")
+
+
+class ContributorRequest(BaseModel):
+    config: List[TeamConfig]
+    overrides: Optional[Dict[str, ContributorOverride]] = {}
+
+
+class DiscordRole(BaseModel):
+    id: str
+    name: str
+    color: int
+    color_hex: str
+    position: int
+    hoist: bool
+    managed: bool
+    mentionable: bool
+
+
+def _int_to_hex_color(color_int: int) -> str:
+    if color_int == 0:
+        return "#000000"
+    hex_str = hex(color_int)[2:].zfill(6)
+    return f"#{hex_str}"
 
 
 def _get_avatar_url(user_data: dict) -> str:
-    """计算头像URL"""
     user_id = user_data['id']
     avatar = user_data.get('avatar')
     discriminator = user_data.get('discriminator', '0')
@@ -52,8 +77,7 @@ def _get_avatar_url(user_data: dict) -> str:
         return f"https://cdn.discordapp.com/embed/avatars/{idx}.png"
 
 
-async def _fetch_guild_members(guild_id: str) -> List[dict]:
-    """分页拉取所有成员"""
+async def _fetch_raw_guild_members(guild_id: str) -> List[dict]:
     if not settings.DISCORD_BOT_TOKEN:
         logger.error("Discord Bot Token missing")
         return []
@@ -63,8 +87,10 @@ async def _fetch_guild_members(guild_id: str) -> List[dict]:
 
     members = []
     last_id = "0"
+    max_loops = 50
+    loop_count = 0
 
-    while True:
+    while loop_count < max_loops:
         try:
             resp = await HttpClient.get(url, headers=headers, params={"limit": 1000, "after": last_id})
             if resp.status_code != 200:
@@ -80,83 +106,175 @@ async def _fetch_guild_members(guild_id: str) -> List[dict]:
 
             if len(batch) < 1000:
                 break
+            loop_count += 1
         except Exception as e:
             logger.error(f"Error fetching members: {e}")
             break
 
+    logger.info(f"Fetched {len(members)} raw members from Discord.")
     return members
 
 
-async def _build_data():
-    """构建贡献者数据结构"""
+async def _get_cached_members() -> List[dict]:
+    cached = await CacheClient.get(CACHE_KEY_RAW_MEMBERS)
+    if cached:
+        return json.loads(cached)
+
     if not settings.DISCORD_GUILD_ID:
         logger.warning("DISCORD_GUILD_ID not set")
         return []
 
-    members = await _fetch_guild_members(settings.DISCORD_GUILD_ID)
-    print(members)
-    with open("data.json", "w") as file:
-        json.dump(members, file)
+    raw_data = await _fetch_raw_guild_members(settings.DISCORD_GUILD_ID)
+    if raw_data:
+        await CacheClient.set(CACHE_KEY_RAW_MEMBERS, json.dumps(raw_data), ttl=CACHE_TTL)
 
+    return raw_data
+
+
+def _process_contributors(
+        members: List[dict],
+        configs: List[TeamConfig],
+        overrides: Dict[str, ContributorOverride]
+) -> List[dict]:
     result = []
-    role_map = {}
+    role_map = {}  # role_id -> index in result list
 
-    for idx, cfg in enumerate(TEAMS_CONFIG):
+    for idx, cfg in enumerate(configs):
         result.append({
-            "name": cfg["name"],
-            "image": cfg.get("image"),
-            "color": cfg.get("color"),
+            "name": cfg.name,
+            "image": cfg.image,
+            "color": cfg.color,
             "list": []
         })
-        role_map[cfg["role_id"]] = idx
+        role_map[cfg.role_id] = idx
 
     for member in members:
         user = member.get("user", {})
+        user_id = user.get("id")
         roles = member.get("roles", [])
 
         target_idx = -1
-        for cfg in TEAMS_CONFIG:
-            if cfg["role_id"] in roles:
-                target_idx = role_map[cfg["role_id"]]
+        for cfg in configs:
+            if cfg.role_id in roles:
+                target_idx = role_map[cfg.role_id]
                 break
 
         if target_idx != -1:
-            display_name = member.get("nick") or user.get("global_name") or user.get("username")
-            result[target_idx]["list"].append({
-                "name": display_name,
-                "avatar": _get_avatar_url(user),
-                "avatarUseGithub": False,
-                "position": TEAMS_CONFIG[target_idx]["name"],
-                "contact": {
-                    "discord": user.get("username")
-                }
-            })
+            base_name = member.get("nick") or user.get("global_name") or user.get("username")
+            base_avatar = _get_avatar_url(user)
+            base_position = result[target_idx]["name"]
+
+            override_data = overrides.get(user_id)
+
+            final_name = override_data.name if (override_data and override_data.name) else base_name
+            final_avatar = override_data.avatar if (override_data and override_data.avatar) else base_avatar
+
+            final_use_github = override_data.avatarUseGithub if (
+                    override_data and override_data.avatarUseGithub is not None) else False
+
+            final_position = override_data.position if (override_data and override_data.position) else base_position
+
+            final_contact = {
+                "discord": user.get("username"),
+                "twitter": None,
+                "github": None,
+                "youtube": None,
+                "other": None
+            }
+
+            if override_data and override_data.contact:
+                if override_data.contact.discord: final_contact["discord"] = override_data.contact.discord
+                if override_data.contact.twitter: final_contact["twitter"] = override_data.contact.twitter
+                if override_data.contact.github: final_contact["github"] = override_data.contact.github
+                if override_data.contact.youtube: final_contact["youtube"] = override_data.contact.youtube
+                if override_data.contact.other: final_contact["other"] = override_data.contact.other
+
+            contributor = {
+                "id": user_id,
+                "name": final_name,
+                "avatar": final_avatar,
+                "avatarUseGithub": final_use_github,
+                "position": final_position,
+                "contact": final_contact
+            }
+            result[target_idx]["list"].append(contributor)
 
     return result
 
 
-@router.get("/contributors", summary="获取 Gensokyo 贡献者列表")
-async def get_gensokyo_contributors():
-    """
-    获取 Gensokyo Reimagined 的贡献者列表。
-    缓存策略：7天。
-    """
-    cached = await CacheClient.get(CACHE_KEY)
-    if cached:
-        return json.loads(cached)
+@router.post("/contributors", summary="根据获取贡献者列表")
+async def get_contributors_dynamic(
+        body: ContributorRequest = Body(..., description="包含 config 和 overrides 的配置对象")
+):
+    all_members = await _get_cached_members()
 
-    data = await _build_data()
-    await CacheClient.set(CACHE_KEY, json.dumps(data), ttl=CACHE_TTL)
-    return data
+    # 2. 根据前端传入的配置和覆盖表进行筛选与合并
+    final_data = _process_contributors(all_members, body.config, body.overrides or {})
+
+    return final_data
 
 
-@router.post("/contributors/refresh", summary="强制刷新贡献者缓存")
-async def refresh_gensokyo_contributors(background_tasks: BackgroundTasks):
+@router.post("/contributors/refresh", summary="强制刷新 Discord 成员缓存")
+async def refresh_contributors_cache(background_tasks: BackgroundTasks):
     async def task():
-        logger.info("Refreshing Gensokyo contributors...")
-        data = await _build_data()
-        await CacheClient.set(CACHE_KEY, json.dumps(data), ttl=CACHE_TTL)
-        logger.info("Gensokyo contributors refreshed.")
+        logger.info("Starting background refresh of Discord members...")
+        if not settings.DISCORD_GUILD_ID:
+            logger.warning("Cannot refresh: DISCORD_GUILD_ID not set")
+            return
+        raw_data = await _fetch_raw_guild_members(settings.DISCORD_GUILD_ID)
+        if raw_data:
+            await CacheClient.set(CACHE_KEY_RAW_MEMBERS, json.dumps(raw_data), ttl=CACHE_TTL)
+            logger.info("Discord members cache updated.")
 
     background_tasks.add_task(task)
-    return {"status": "refreshing"}
+    return {"status": "refreshing", "message": "Background refresh started"}
+
+
+@router.get("/roles", response_model=List[DiscordRole], summary="获取服务器所有身份组")
+async def get_guild_roles():
+    if not settings.DISCORD_GUILD_ID:
+        raise HTTPException(status_code=500, detail="Guild ID not set")
+
+    cache_key = f"discord:roles:{settings.DISCORD_GUILD_ID}"
+
+    cached_data = await CacheClient.get(cache_key)
+    if cached_data:
+        return json.loads(cached_data)
+
+    if not settings.DISCORD_BOT_TOKEN:
+        raise HTTPException(status_code=500, detail="Bot Token missing")
+
+    url = f"https://discord.com/api/v10/guilds/{settings.DISCORD_GUILD_ID}/roles"
+    headers = {"Authorization": f"Bot {settings.DISCORD_BOT_TOKEN}"}
+
+    try:
+        response = await HttpClient.get(url, headers=headers)
+
+        if response.status_code == 404:
+            raise HTTPException(status_code=404, detail="Guild not found")
+
+        if response.status_code != 200:
+            raise HTTPException(status_code=response.status_code, detail="Failed to fetch roles")
+
+        roles_data = response.json()
+        roles_data.sort(key=lambda x: x['position'], reverse=True)
+
+        processed_roles = []
+        for r in roles_data:
+            processed_roles.append({
+                "id": r["id"],
+                "name": r["name"],
+                "color": r["color"],
+                "color_hex": _int_to_hex_color(r["color"]),
+                "position": r["position"],
+                "hoist": r.get("hoist", False),
+                "managed": r.get("managed", False),
+                "mentionable": r.get("mentionable", False)
+            })
+
+        await CacheClient.set(cache_key, json.dumps(processed_roles), ttl=3600)
+        return processed_roles
+
+    except Exception as e:
+        logger.error(f"Get roles error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
